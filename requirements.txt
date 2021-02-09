@@ -1,3 +1,4 @@
+alabaster==0.7.12
 anyio @ file:///Users/runner/miniforge3/conda-bld/anyio_1612745560466/work/dist
 appnope @ file:///Users/runner/miniforge3/conda-bld/appnope_1610094673755/work
 argon2-cffi @ file:///Users/runner/miniforge3/conda-bld/argon2-cffi_1610522600383/work
@@ -12,12 +13,15 @@ brotlipy==0.7.0
 certifi==2020.12.5
 cffi @ file:///Users/runner/miniforge3/conda-bld/cffi_1606601143792/work
 chardet @ file:///Users/runner/miniforge3/conda-bld/chardet_1610093613037/work
+colorama @ file:///home/conda/feedstock_root/build_artifacts/colorama_1602866480661/work
 cryptography @ file:///Users/runner/miniforge3/conda-bld/cryptography_1610338693505/work
 cycler==0.10.0
 decorator==4.4.2
 defusedxml==0.6.0
+docutils @ file:///Users/runner/miniforge3/conda-bld/docutils_1610127908145/work
 entrypoints @ file:///home/conda/feedstock_root/build_artifacts/entrypoints_1605121927639/work/dist/entrypoints-0.3-py2.py3-none-any.whl
 idna @ file:///home/conda/feedstock_root/build_artifacts/idna_1593328102638/work
+imagesize==1.2.0
 importlib-metadata @ file:///Users/runner/miniforge3/conda-bld/importlib-metadata_1610355342993/work
 ipykernel==5.1.0
 ipython @ file:///Users/runner/miniforge3/conda-bld/ipython_1612487042039/work
@@ -71,6 +75,14 @@ seaborn @ file:///home/conda/feedstock_root/build_artifacts/seaborn-split_161183
 Send2Trash==1.5.0
 six @ file:///home/conda/feedstock_root/build_artifacts/six_1590081179328/work
 sniffio @ file:///Users/runner/miniforge3/conda-bld/sniffio_1610318427209/work
+snowballstemmer @ file:///home/conda/feedstock_root/build_artifacts/snowballstemmer_1611270869511/work
+Sphinx @ file:///home/conda/feedstock_root/build_artifacts/sphinx_1610040422307/work
+sphinxcontrib-applehelp==1.0.2
+sphinxcontrib-devhelp==1.0.2
+sphinxcontrib-htmlhelp==1.0.3
+sphinxcontrib-jsmath==1.0.1
+sphinxcontrib-qthelp==1.0.3
+sphinxcontrib-serializinghtml==1.1.4
 statsmodels @ file:///Users/runner/miniforge3/conda-bld/statsmodels_1612273630071/work
 terminado @ file:///Users/runner/miniforge3/conda-bld/terminado_1609794202661/work
 testpath==0.4.4

@@ -3,6 +3,7 @@ channels:
   - conda-forge
   - defaults
 dependencies:
+  - alabaster=0.7.12=py_0
   - anyio=2.1.0=py39h6e9494a_0
   - appnope=0.1.2=py39h6e9494a_1
   - argon2-cffi=20.1.0=py39hcbf5805_2
@@ -19,13 +20,16 @@ dependencies:
   - certifi=2020.12.5=py39h6e9494a_1
   - cffi=1.14.4=py39h7786acb_1
   - chardet=4.0.0=py39h6e9494a_1
+  - colorama=0.4.4=pyh9f0ad1d_0
   - cryptography=3.3.1=py39h79a2c39_1
   - cycler=0.10.0=py_2
   - decorator=4.4.2=py_0
   - defusedxml=0.6.0=py_0
+  - docutils=0.16=py39h6e9494a_3
   - entrypoints=0.3=pyhd8ed1ab_1003
   - freetype=2.10.4=h4cff582_1
   - idna=2.10=pyh9f0ad1d_0
+  - imagesize=1.2.0=py_0
   - importlib-metadata=3.4.0=py39h6e9494a_0
   - importlib_metadata=3.4.0=hd8ed1ab_0
   - ipykernel=5.1.0=pyh24bf2e0_0
@@ -106,6 +110,14 @@ dependencies:
   - setuptools=49.6.0=py39h6e9494a_3
   - six=1.15.0=pyh9f0ad1d_0
   - sniffio=1.2.0=py39h6e9494a_1
+  - snowballstemmer=2.1.0=pyhd8ed1ab_0
+  - sphinx=3.4.3=pyhd8ed1ab_0
+  - sphinxcontrib-applehelp=1.0.2=py_0
+  - sphinxcontrib-devhelp=1.0.2=py_0
+  - sphinxcontrib-htmlhelp=1.0.3=py_0
+  - sphinxcontrib-jsmath=1.0.1=py_0
+  - sphinxcontrib-qthelp=1.0.3=py_0
+  - sphinxcontrib-serializinghtml=1.1.4=py_0
   - sqlite=3.34.0=h17101e1_0
   - statsmodels=0.12.2=py39h329c335_0
   - terminado=0.9.2=py39h6e9494a_0
