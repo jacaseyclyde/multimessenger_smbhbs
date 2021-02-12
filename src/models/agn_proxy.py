@@ -180,21 +180,6 @@ class Hopkins2007QuasarFormationDensity(Fittable2DModel):
 
     z_ref = Parameter(default=2)
 
-    # log_formation_rate_normalization = Parameter(default=-3.830)
-    # log_formation_rate_power_law_slope = Parameter(default=-4.02)
-
-    # log_mass_break_normalization = Parameter(default=8.959)
-    # log_mass_break_k_1 = Parameter(default=1.18)
-    # log_mass_break_k_2 = Parameter(default=-6.68)
-
-    # low_mass_slope = Parameter(default=.2)
-
-    # high_mass_slope_normalization = Parameter(default=2.86)
-    # high_mass_slope_k_1 = Parameter(default=1.80)
-    # high_mass_slope_k_2 = Parameter(default=-1.13)
-
-    # z_ref = Parameter(default=2)
-
     @staticmethod
     def evaluate(log_mass, z, log_formation_rate_normalization,
                  log_formation_rate_power_law_slope,
