@@ -5,25 +5,25 @@ Module documentation.
 
 # Imports
 import sys
-#import os
 
 import numpy as np
-import astropy.units as u
-from astropy.units import Quantity
-from astropy.modeling import (FittableModel, Fittable1DModel, Fittable2DModel,
-                              Parameter)
-from astropy.cosmology import WMAP9, z_at_value
-
-from scipy.stats import lognorm
 from scipy.interpolate import interp1d
 
+import astropy.units as u
+from astropy.modeling import (FittableModel, Fittable1DModel, Fittable2DModel,
+                              Parameter)
+from astropy.cosmology import WMAP9
+
 # Global variables
+# np.logspace(np.log10(1e-10), np.log10(4), 50)
 ZGRID = np.logspace(-8, np.log10(100000), 50)
-AGEGRID = WMAP9.age(ZGRID)
+AGEGRID = WMAP9.age(ZGRID).to(u.Gyr)
 Z_AT_VALUE = interp1d(AGEGRID.value, ZGRID, axis=0, bounds_error=False,
                       fill_value=0)
 
 # Class declarations
+
+
 class Schechter1D(Fittable1DModel):
 
     normalization = Parameter(default=1)
@@ -100,6 +100,7 @@ class Schechter2D_5bins(Fittable2DModel):
 
         return schechter
 
+
 class Schechter2D(Fittable2DModel):
 
     norm1 = Parameter(default=1)
@@ -158,6 +159,7 @@ class Schechter2D(Fittable2DModel):
             schechter = np.diagonal(schechter)
 
         return schechter
+
 
 class DoubleSchechter2D(Fittable2DModel):
 
@@ -358,6 +360,7 @@ class Schechter2D_8bins(Fittable2DModel):
             schechter = np.diagonal(schechter)
 
         return schechter
+
 
 class TripleSchechter2D(Fittable2DModel):
 
@@ -707,6 +710,7 @@ class Timescale3D(FittableModel):
                                  - np.log10(4e10) + np.log10(WMAP9.h))))
                 * (1 + (z / 8.)))
 
+
 class M_BH_M_gal(Fittable1DModel):
 
     alpha = Parameter(default=0)
@@ -859,9 +863,9 @@ class Sesana2013_5bins(FittableModel):
         f_term = self._pair_fraction(log_m_gal, z, q, local_pair_fraction,
                                      pair_fraction_exponent, q_min)
         dtdz = 1 / ((WMAP9.H0 * (1 + z)
-                    * np.sqrt(WMAP9.Om0 * ((1 + z) ** 3)
-                              + WMAP9.Ok0 * ((1 + z) ** 2)
-                              + WMAP9.Ode0)).to(u.Gyr ** -1)).value
+                     * np.sqrt(WMAP9.Om0 * ((1 + z) ** 3)
+                               + WMAP9.Ok0 * ((1 + z) ** 2)
+                               + WMAP9.Ode0)).to(u.Gyr ** -1)).value
 
         return m_term * f_term * dtdz / t_term
 
@@ -927,6 +931,7 @@ class Sesana2013_Schechter(FittableModel):
         self.exp = interp1d(self.z_range, np.array([exp1, exp2, exp3, exp4,
                                                     exp5]), axis=0,
                             bounds_error=False, fill_value=(exp1, exp5))
+
         super().__init__(alpha, beta, norm1, norm2, norm3, norm4, norm5,
                          log_m_break1, log_m_break2, log_m_break3,
                          log_m_break4, log_m_break5, exp1, exp2, exp3, exp4,
@@ -949,28 +954,41 @@ class Sesana2013_Schechter(FittableModel):
                                       log_m_bulge - np.log10(.25)))
         return log_m_gal
 
-    def _mass_function(self, log_m, z, norm1, norm2, norm3, norm4, norm5,
-                       log_m_break1, log_m_break2, log_m_break3, log_m_break4,
-                       log_m_break5, exp1, exp2, exp3, exp4, exp5):
-        log_m_ratio = log_m - self.log_m_br(z)
-        schechter = (np.log(10) * self.norm(z) * np.exp(- 10 ** log_m_ratio)
-                     * (10 ** (log_m_ratio * (1 + self.exp(z)))))
-        if np.ndim(schechter) >= 2:
-            schechter = np.diagonal(schechter)
-        return schechter
+    def _mass_function(self, log_m, z, norm, log_m_break, exp):
+        log_m_ratio = log_m - log_m_break
+        schechter = (np.log(10) * norm
+                     * np.exp(- 10 ** log_m_ratio)
+                     * (10 ** (log_m_ratio * (1 + exp))))
 
-    @staticmethod
-    def _pair_fraction(log_m, z, q, local_pair_fraction,
+        mf = interp1d(self.z_range, schechter, axis=0, bounds_error=False,
+                      fill_value=(schechter[0], schechter[-1]))(z)
+
+        if np.ndim(mf) >= 2:
+            mf = np.diagonal(mf)
+
+        mf = np.where(mf < 0, 1e-7, mf)
+
+        return mf
+
+    # @staticmethod
+    def _pair_fraction(self, log_m, z, q, local_pair_fraction,
                        pair_fraction_exponent, q_min):
-        return (- local_pair_fraction * ((1 + z) ** pair_fraction_exponent)
-                / (q * np.log(q_min)))
+
+        frac = local_pair_fraction * ((1 + z) ** pair_fraction_exponent)
+        if np.ndim(frac) >= 2:
+            frac = np.diagonal(frac)
+
+        # frac = np.where(frac < 0, 0, frac)
+        # frac = np.where(frac > 1, 1, frac)
+
+        return - frac / (q * np.log(q_min))
 
     @staticmethod
     def _timescale(log_m, z, q, t_norm, r_proj):
-        return (t_norm * (r_proj / 50.)
-                * (10 ** (-.3 * (log_m + np.log10(1 + q) + np.log10(q)
+        return (t_norm * (r_proj / 50)
+                * (10 ** (-.3 * (log_m + np.log10(q)  # + np.log10(1 + q)
                                  - np.log10(4e10) + np.log10(WMAP9.h))))
-                * (1 + (z / 8.)))
+                * (1 + (z / 8)))
 
     def evaluate(self, log_m, z, q, alpha, beta, norm1, norm2, norm3, norm4,
                  norm5, log_m_break1, log_m_break2, log_m_break3, log_m_break4,
@@ -985,21 +1003,25 @@ class Sesana2013_Schechter(FittableModel):
         t_term = np.where(t_term > t_z, np.inf, t_term)
 
         delta_z = Z_AT_VALUE(t_z - t_term) - z
-        m_term = (self._mass_function(log_m_gal, z + delta_z, norm1, norm2,
-                                      norm3, norm4, norm5, log_m_break1,
-                                      log_m_break2, log_m_break3, log_m_break4,
-                                      log_m_break5, exp1, exp2, exp3, exp4,
-                                      exp5)
-                  * u.Mpc ** -3 * u.Msun ** -1.).value
 
-        f_term = self._pair_fraction(log_m_gal, z, q, local_pair_fraction,
-                                     pair_fraction_exponent, q_min)
+        norm = np.array([norm1, norm2, norm3, norm4, norm5])
+        log_m_break = np.array([log_m_break1, log_m_break2, log_m_break3,
+                                log_m_break4, log_m_break5])
+        exp = np.array([exp1, exp2, exp3, exp4, exp5])
+
+        m_term = self._mass_function(log_m_gal, z + delta_z, norm,
+                                     log_m_break, exp)
+        f_term = self._pair_fraction(log_m_gal, z + delta_z, q,
+                                      local_pair_fraction,
+                                      pair_fraction_exponent, q_min)
         dtdz = 1 / ((WMAP9.H0 * (1 + z)
-                    * np.sqrt(WMAP9.Om0 * ((1 + z) ** 3)
-                              + WMAP9.Ok0 * ((1 + z) ** 2)
-                              + WMAP9.Ode0)).to(u.Gyr ** -1)).value
+                      * np.sqrt(WMAP9.Om0 * ((1 + z) ** 3)
+                                + WMAP9.Ok0 * ((1 + z) ** 2)
+                                + WMAP9.Ode0)).to(u.Gyr ** -1)).value
 
-        return m_term * f_term * dtdz / t_term
+        n_dens = m_term * f_term * dtdz / t_term
+        return np.where(delta_z < 0, 0, n_dens)
+
 
 class Sesana2013_DoubleSchechter(FittableModel):
 
@@ -1089,42 +1111,13 @@ class Sesana2013_DoubleSchechter(FittableModel):
         # set up interpolation for binned mass function parameters
         self.z_range = np.array([0, .3, .5, .7, .9])
 
-        self.norm1 = interp1d(self.z_range, np.array([norm11, norm12, norm13,
-                                                      norm14, norm15]), axis=0,
-                              bounds_error=False, fill_value=(norm11, norm15))
-        self.norm2 = interp1d(self.z_range, np.array([norm21, norm22, norm23,
-                                                      norm24, norm25]), axis=0,
-                              bounds_error=False, fill_value=(norm21, norm25))
-
-        self.log_m_br1 = interp1d(self.z_range, np.array([log_m_break11,
-                                                          log_m_break12,
-                                                          log_m_break13,
-                                                          log_m_break14,
-                                                          log_m_break15]),
-                                  axis=0, bounds_error=False,
-                                  fill_value=(log_m_break11, log_m_break15))
-        self.log_m_br2 = interp1d(self.z_range, np.array([log_m_break21,
-                                                          log_m_break22,
-                                                          log_m_break23,
-                                                          log_m_break24,
-                                                          log_m_break25]),
-                                  axis=0, bounds_error=False,
-                                  fill_value=(log_m_break21, log_m_break25))
-
-        self.exp1 = interp1d(self.z_range, np.array([exp11, exp12, exp13,
-                                                     exp14, exp15]), axis=0,
-                             bounds_error=False, fill_value=(exp11, exp15))
-        self.exp2 = interp1d(self.z_range, np.array([exp21, exp22, exp23,
-                                                     exp24, exp25]), axis=0,
-                             bounds_error=False, fill_value=(exp21, exp25))
-
         # set up interpolation for binned pair fraction parameters
         self.log_m_range = np.array([9.5, 10, 10.5])
         self.local_pf = interp1d(self.log_m_range,
                                  np.array([local_pair_fraction1,
                                            local_pair_fraction2,
                                            local_pair_fraction3]),
-                                 axis=0, bounds_error=False,
+                                 axis=0, bounds_error=False, kind='previous',
                                  fill_value=(local_pair_fraction1,
                                              local_pair_fraction3))
 
@@ -1132,7 +1125,7 @@ class Sesana2013_DoubleSchechter(FittableModel):
                                np.array([pair_fraction_exponent1,
                                          pair_fraction_exponent2,
                                          pair_fraction_exponent3]),
-                               axis=0, bounds_error=False,
+                               axis=0, bounds_error=False, kind='previous',
                                fill_value=(pair_fraction_exponent1,
                                            pair_fraction_exponent3))
 
@@ -1164,44 +1157,47 @@ class Sesana2013_DoubleSchechter(FittableModel):
                                       log_m_bulge - np.log10(.25)))
         return log_m_gal
 
-    def _mass_function(self, log_m, z, norm11, norm12, norm13, norm14, norm15,
-                       norm21, norm22, norm23, norm24, norm25, log_m_break11,
-                       log_m_break12, log_m_break13, log_m_break14,
-                       log_m_break15, log_m_break21, log_m_break22,
-                       log_m_break23, log_m_break24, log_m_break25, exp11,
-                       exp12, exp13, exp14, exp15, exp21, exp22, exp23, exp24,
-                       exp25):
-        log_m_ratio1 = log_m - self.log_m_br1(z)
-        log_m_ratio2 = log_m - self.log_m_br2(z)
-        schechter1 = (np.log(10) * self.norm1(z)
+    def _mass_function(self, log_m, z, norm1=None, norm2=None,
+                       log_m_break1=None, log_m_break2=None, exp1=None,
+                       exp2=None):
+        log_m_ratio1 = log_m - log_m_break1
+        log_m_ratio2 = log_m - log_m_break2
+        schechter1 = (np.log(10) * norm1
                       * np.exp(- 10 ** log_m_ratio1)
-                      * (10 ** (log_m_ratio1 * (1 + self.exp1(z)))))
-        if np.ndim(schechter1) >= 2:
-            schechter1 = np.diagonal(schechter1)
+                      * (10 ** (log_m_ratio1 * (1 + exp1))))
 
-        schechter2 = (np.log(10) * self.norm2(z)
+        schechter2 = (np.log(10) * norm2
                       * np.exp(- 10 ** log_m_ratio2)
-                      * (10 ** (log_m_ratio2 * (1 + self.exp2(z)))))
-        if np.ndim(schechter2) >= 2:
-            schechter2 = np.diagonal(schechter2)
+                      * (10 ** (log_m_ratio2 * (1 + exp2))))
 
-        return schechter1 + schechter2
+        schechter = schechter1 + schechter2
+        mf = interp1d(self.z_range, schechter, axis=0, bounds_error=False,
+                      fill_value=(schechter[0], schechter[-1]))(z)
+
+        if np.ndim(mf) >= 2:
+            mf = np.diagonal(mf)
+
+        mf = np.where(mf < 0, 1e-7, mf)
+
+        return mf
 
     def _pair_fraction(self, log_m, z, q, local_pair_fraction1,
                        local_pair_fraction2, local_pair_fraction3,
                        pair_fraction_exponent1, pair_fraction_exponent2,
                        pair_fraction_exponent3, q_min):
-        frac = - (self.local_pf(log_m) * ((1 + z) ** self.pf_exp(log_m))
-                  / (q * np.log(q_min)))
+        frac = self.local_pf(log_m) * ((1 + z) ** self.pf_exp(log_m))
         if np.ndim(frac) >= 2:
             frac = np.diagonal(frac)
 
-        return frac
+        # frac = np.where(frac < 0, 0, frac)
+        # frac = np.where(frac > 1, 1, frac)
+
+        return - frac  / (q * np.log(q_min))
 
     @staticmethod
     def _timescale(log_m, z, q, t_norm, r_proj):
         return (t_norm * (r_proj / 50.)
-                * (10 ** (-.3 * (log_m + np.log10(1 + q) + np.log10(q)
+                * (10 ** (-.3 * (log_m + np.log10(q)  # + np.log10(1 + q)
                                  - np.log10(4e10) + np.log10(WMAP9.h))))
                 * (1 + (z / 8.)))
 
@@ -1223,30 +1219,33 @@ class Sesana2013_DoubleSchechter(FittableModel):
         t_term = np.where(t_term > t_z, np.inf, t_term)
 
         delta_z = Z_AT_VALUE(t_z - t_term) - z
-        m_term = (self._mass_function(log_m_gal, z + delta_z, norm11, norm12,
-                                      norm13, norm14, norm15, norm21, norm22,
-                                      norm23, norm24, norm25, log_m_break11,
-                                      log_m_break12, log_m_break13,
-                                      log_m_break14, log_m_break15,
-                                      log_m_break21, log_m_break22,
-                                      log_m_break23, log_m_break24,
-                                      log_m_break25, exp11, exp12, exp13,
-                                      exp14, exp15, exp21, exp22, exp23, exp24,
-                                      exp25)
-                  * u.Mpc ** -3 * u.Msun ** -1.).value
 
-        f_term = self._pair_fraction(log_m_gal, z, q, local_pair_fraction1,
+        norm1 = np.array([norm11, norm12, norm13, norm14, norm15])
+        norm2 = np.array([norm21, norm22, norm23, norm24, norm25])
+        log_m_break1 = np.array([log_m_break11, log_m_break12, log_m_break13,
+                                 log_m_break14, log_m_break15])
+        log_m_break2 = np.array([log_m_break21, log_m_break22, log_m_break23,
+                                 log_m_break24, log_m_break25])
+        exp1 = np.array([exp11, exp12, exp13, exp14, exp15])
+        exp2 = np.array([exp21, exp22, exp23, exp24, exp25])
+
+        m_term = self._mass_function(log_m_gal, z + delta_z, norm1, norm2,
+                                     log_m_break1, log_m_break2, exp1, exp2)
+
+        f_term = self._pair_fraction(log_m_gal, z + delta_z, q,
+                                     local_pair_fraction1,
                                      local_pair_fraction2,
                                      local_pair_fraction3,
                                      pair_fraction_exponent1,
                                      pair_fraction_exponent2,
                                      pair_fraction_exponent3, q_min)
         dtdz = 1 / ((WMAP9.H0 * (1 + z)
-                    * np.sqrt(WMAP9.Om0 * ((1 + z) ** 3)
-                              + WMAP9.Ok0 * ((1 + z) ** 2)
-                              + WMAP9.Ode0)).to(u.Gyr ** -1)).value
+                     * np.sqrt(WMAP9.Om0 * ((1 + z) ** 3)
+                               + WMAP9.Ok0 * ((1 + z) ** 2)
+                               + WMAP9.Ode0)).to(u.Gyr ** -1)).value
 
-        return m_term * f_term * dtdz / t_term
+        n_dens = m_term * f_term * dtdz / t_term
+        return np.where(delta_z < 0, 0, n_dens)
 
 
 class Sesana2013_TripleSchechter(FittableModel):
@@ -1399,63 +1398,6 @@ class Sesana2013_TripleSchechter(FittableModel):
         # set up interpolation for binned mass function parameters
         self.z_range = np.array([0, .3, .5, .7, .9, 1.1, 1.35, 1.75])
 
-        self.norm1 = interp1d(self.z_range, np.array([norm11, norm12, norm13,
-                                                      norm14, norm15, norm16,
-                                                      norm17, norm18]), axis=0,
-                              bounds_error=False, fill_value=(norm11, norm18))
-        self.norm2 = interp1d(self.z_range, np.array([norm21, norm22, norm23,
-                                                      norm24, norm25, norm26,
-                                                      norm27, norm28]), axis=0,
-                              bounds_error=False, fill_value=(norm21, norm28))
-        self.norm3 = interp1d(self.z_range, np.array([norm31, norm32, norm33,
-                                                      norm34, norm35, norm36,
-                                                      norm37, norm38]), axis=0,
-                              bounds_error=False, fill_value=(norm31, norm38))
-
-        self.log_m_br1 = interp1d(self.z_range, np.array([log_m_break11,
-                                                          log_m_break12,
-                                                          log_m_break13,
-                                                          log_m_break14,
-                                                          log_m_break15,
-                                                          log_m_break16,
-                                                          log_m_break17,
-                                                          log_m_break18]),
-                                  axis=0, bounds_error=False,
-                                  fill_value=(log_m_break11, log_m_break18))
-        self.log_m_br2 = interp1d(self.z_range, np.array([log_m_break21,
-                                                          log_m_break22,
-                                                          log_m_break23,
-                                                          log_m_break24,
-                                                          log_m_break25,
-                                                          log_m_break26,
-                                                          log_m_break27,
-                                                          log_m_break28]),
-                                  axis=0, bounds_error=False,
-                                  fill_value=(log_m_break21, log_m_break28))
-        self.log_m_br3 = interp1d(self.z_range, np.array([log_m_break31,
-                                                          log_m_break32,
-                                                          log_m_break33,
-                                                          log_m_break34,
-                                                          log_m_break35,
-                                                          log_m_break36,
-                                                          log_m_break37,
-                                                          log_m_break38]),
-                                  axis=0, bounds_error=False,
-                                  fill_value=(log_m_break31, log_m_break38))
-
-        self.exp1 = interp1d(self.z_range, np.array([exp11, exp12, exp13,
-                                                     exp14, exp15, exp16,
-                                                     exp17, exp18]), axis=0,
-                             bounds_error=False, fill_value=(exp11, exp18))
-        self.exp2 = interp1d(self.z_range, np.array([exp21, exp22, exp23,
-                                                     exp24, exp25, exp26,
-                                                     exp27, exp28]), axis=0,
-                             bounds_error=False, fill_value=(exp21, exp28))
-        self.exp3 = interp1d(self.z_range, np.array([exp31, exp32, exp33,
-                                                     exp34, exp35, exp36,
-                                                     exp37, exp38]), axis=0,
-                             bounds_error=False, fill_value=(exp31, exp38))
-
         super().__init__(alpha, beta, norm11, norm12, norm13, norm14, norm15,
                          norm16, norm17, norm18, norm21, norm22, norm23,
                          norm24, norm25, norm26, norm27, norm28, norm31,
@@ -1491,54 +1433,51 @@ class Sesana2013_TripleSchechter(FittableModel):
                                       log_m_bulge - np.log10(.25)))
         return log_m_gal
 
-    def _mass_function(self, log_m, z, norm11, norm12, norm13, norm14, norm15,
-                       norm16, norm17, norm18, norm21, norm22, norm23, norm24,
-                       norm25, norm26, norm27, norm28, norm31, norm32, norm33,
-                       norm34, norm35, norm36, norm37, norm38, log_m_break11,
-                       log_m_break12, log_m_break13, log_m_break14,
-                       log_m_break15, log_m_break16, log_m_break17,
-                       log_m_break18, log_m_break21, log_m_break22,
-                       log_m_break23, log_m_break24, log_m_break25,
-                       log_m_break26, log_m_break27, log_m_break28,
-                       log_m_break31, log_m_break32, log_m_break33,
-                       log_m_break34, log_m_break35, log_m_break36,
-                       log_m_break37, log_m_break38, exp11, exp12, exp13,
-                       exp14, exp15, exp16, exp17, exp18, exp21, exp22, exp23,
-                       exp24, exp25, exp26, exp27, exp28, exp31, exp32, exp33,
-                       exp34, exp35, exp36, exp37, exp38):
-        log_m_ratio1 = log_m - self.log_m_br1(z)
-        log_m_ratio2 = log_m - self.log_m_br2(z)
-        log_m_ratio3 = log_m - self.log_m_br3(z)
-        schechter1 = (np.log(10) * self.norm1(z)
+    def _mass_function(self, log_m, z, norm1=None, norm2=None, norm3=None,
+                       log_m_break1=None, log_m_break2=None, log_m_break3=None,
+                       exp1=None, exp2=None, exp3=None):
+        log_m_ratio1 = log_m - log_m_break1
+        log_m_ratio2 = log_m - log_m_break2
+        log_m_ratio3 = log_m - log_m_break3
+        schechter1 = (np.log(10) * norm1
                       * np.exp(- 10 ** log_m_ratio1)
-                      * (10 ** (log_m_ratio1 * (1 + self.exp1(z)))))
-        if np.ndim(schechter1) >= 2:
-            schechter1 = np.diagonal(schechter1)
+                      * (10 ** (log_m_ratio1 * (1 + exp1))))
 
-        schechter2 = (np.log(10) * self.norm2(z)
+        schechter2 = (np.log(10) * norm2
                       * np.exp(- 10 ** log_m_ratio2)
-                      * (10 ** (log_m_ratio2 * (1 + self.exp2(z)))))
-        if np.ndim(schechter2) >= 2:
-            schechter2 = np.diagonal(schechter2)
+                      * (10 ** (log_m_ratio2 * (1 + exp2))))
 
-        schechter3 = (np.log(10) * self.norm3(z)
+        schechter3 = (np.log(10) * norm3
                       * np.exp(- 10 ** log_m_ratio3)
-                      * (10 ** (log_m_ratio3 * (1 + self.exp3(z)))))
-        if np.ndim(schechter3) >= 2:
-            schechter3 = np.diagonal(schechter3)
+                      * (10 ** (log_m_ratio3 * (1 + exp3))))
 
-        return schechter1 + schechter2 + schechter3
+        schechter = schechter1 + schechter2 + schechter3
+        mf = interp1d(self.z_range, schechter, axis=0, bounds_error=False,
+                      fill_value=(schechter[0], schechter[-1]))(z)
+
+        if np.ndim(mf) >= 2:
+            mf = np.diagonal(mf)
+
+        mf = np.where(mf < 0, 1e-7, mf)
+
+        return mf
 
     @staticmethod
     def _pair_fraction(log_m, z, q, local_pair_fraction,
                        pair_fraction_exponent, q_min):
-        return (- local_pair_fraction * ((1 + z) ** pair_fraction_exponent)
-                / (q * np.log(q_min)))
+        frac = local_pair_fraction * ((1 + z) ** pair_fraction_exponent)
+        if np.ndim(frac) >= 2:
+            frac = np.diagonal(frac)
+
+        # frac = np.where(frac < 0, 0, frac)
+        # frac = np.where(frac > 1, 1, frac)
+
+        return - frac / (q * np.log(q_min))
 
     @staticmethod
     def _timescale(log_m, z, q, t_norm, r_proj):
         return (t_norm * (r_proj / 50.)
-                * (10 ** (-.3 * (log_m + np.log10(1 + q) + np.log10(q)
+                * (10 ** (-.3 * (log_m + np.log10(q)  # + np.log10(1 + q)
                                  - np.log10(4e10) + np.log10(WMAP9.h))))
                 * (1 + (z / 8.)))
 
@@ -1564,40 +1503,47 @@ class Sesana2013_TripleSchechter(FittableModel):
         t_term = np.where(t_term > t_z, np.inf, t_term)
 
         delta_z = Z_AT_VALUE(t_z - t_term) - z
-        m_term = (self._mass_function(log_m_gal, z + delta_z, norm11, norm12,
-                                      norm13, norm14, norm15, norm16, norm17,
-                                      norm18, norm21, norm22, norm23, norm24,
-                                      norm25, norm26, norm27, norm28, norm31,
-                                      norm32, norm33, norm34, norm35, norm36,
-                                      norm37, norm38, log_m_break11,
-                                      log_m_break12, log_m_break13,
-                                      log_m_break14, log_m_break15,
-                                      log_m_break16, log_m_break17,
-                                      log_m_break18, log_m_break21,
-                                      log_m_break22, log_m_break23,
-                                      log_m_break24, log_m_break25,
-                                      log_m_break26, log_m_break27,
-                                      log_m_break28, log_m_break31,
-                                      log_m_break32, log_m_break33,
-                                      log_m_break34, log_m_break35,
-                                      log_m_break36, log_m_break37,
-                                      log_m_break38, exp11, exp12, exp13,
-                                      exp14, exp15, exp16, exp17, exp18, exp21,
-                                      exp22, exp23, exp24, exp25, exp26, exp27,
-                                      exp28, exp31, exp32, exp33, exp34, exp35,
-                                      exp36, exp37, exp38)
+
+        norm1 = np.array([norm11, norm12, norm13, norm14, norm15, norm16,
+                          norm17, norm18])
+        norm2 = np.array([norm21, norm22, norm23, norm24, norm25, norm26,
+                          norm27, norm28])
+        norm3 = np.array([norm31, norm32, norm33, norm34, norm35, norm36,
+                          norm37, norm38])
+        log_m_break1 = np.array([log_m_break11, log_m_break12, log_m_break13,
+                                 log_m_break14, log_m_break15, log_m_break16,
+                                 log_m_break17, log_m_break18])
+        log_m_break2 = np.array([log_m_break21, log_m_break22, log_m_break23,
+                                 log_m_break24, log_m_break25, log_m_break26,
+                                 log_m_break27, log_m_break28])
+        log_m_break3 = np.array([log_m_break31, log_m_break32, log_m_break33,
+                                 log_m_break34, log_m_break35, log_m_break36,
+                                 log_m_break37, log_m_break38])
+        exp1 = np.array([exp11, exp12, exp13, exp14, exp15, exp16, exp17,
+                         exp18])
+        exp2 = np.array([exp21, exp22, exp23, exp24, exp25, exp26, exp27,
+                         exp28])
+        exp3 = np.array([exp31, exp32, exp33, exp34, exp35, exp36, exp37,
+                         exp38])
+
+        m_term = (self._mass_function(log_m_gal, z + delta_z, norm1, norm2,
+                                      norm3, log_m_break1, log_m_break2,
+                                      log_m_break3, exp1, exp2, exp3)
                   * u.Mpc ** -3 * u.Msun ** -1.).value
 
-        f_term = self._pair_fraction(log_m_gal, z, q, local_pair_fraction,
+        f_term = self._pair_fraction(log_m_gal, z + delta_z, q,
+                                     local_pair_fraction,
                                      pair_fraction_exponent, q_min)
         dtdz = 1 / ((WMAP9.H0 * (1 + z)
-                    * np.sqrt(WMAP9.Om0 * ((1 + z) ** 3)
-                              + WMAP9.Ok0 * ((1 + z) ** 2)
-                              + WMAP9.Ode0)).to(u.Gyr ** -1)).value
+                     * np.sqrt(WMAP9.Om0 * ((1 + z) ** 3)
+                               + WMAP9.Ok0 * ((1 + z) ** 2)
+                               + WMAP9.Ode0)).to(u.Gyr ** -1)).value
 
-        return m_term * f_term * dtdz / t_term
+        n_dens = m_term * f_term * dtdz / t_term
+        return np.where(delta_z < 0, 0, n_dens)
 
 # Function declarations
+
 
 def main():
     args = sys.argv[1:]
@@ -1609,4 +1555,98 @@ def main():
 
 # Main body
 if __name__ == '__main__':
+    # NEW_log_mbh = 10
+    # NEW_z = 0
+    # NEW_q = .25
+
+    # NEW_ALPHA = 8.46
+    # NEW_BETA = 1.05
+
+    # NEW_R_PROJ = 20
+    # NEW_T_NORM = 2.2
+
+    # NEW_NORM11 = 0.0133 * (WMAP9.h ** 3)
+    # NEW_NORM12 = 2.89 * 1e-3 * (WMAP9.h ** 3)
+    # NEW_NORM13 = 1.74 * 1e-3 * (WMAP9.h ** 3)
+    # NEW_NORM14 = 2.16 * 1e-3 * (WMAP9.h ** 3)
+    # NEW_NORM15 = 2.94 * 1e-3 * (WMAP9.h ** 3)
+
+    # NEW_LOG_M_BREAK11 = 10.63 - 2. * np.log10(WMAP9.h)
+    # NEW_LOG_M_BREAK12 = 10.90 - 2. * np.log10(WMAP9.h)
+    # NEW_LOG_M_BREAK13 = 10.91 - 2. * np.log10(WMAP9.h)
+    # NEW_LOG_M_BREAK14 = 10.95 - 2. * np.log10(WMAP9.h)
+    # NEW_LOG_M_BREAK15 = 10.92 - 2. * np.log10(WMAP9.h)
+
+    # NEW_EXP11 = -0.86
+    # NEW_EXP12 = -1.06
+    # NEW_EXP13 = -1.05
+    # NEW_EXP14 = -.93
+    # NEW_EXP15 = -.91
+
+    # NEW_NORM21 = 0
+    # NEW_NORM22 = 1.80 * 1e-3 * (WMAP9.h ** 3)
+    # NEW_NORM23 = 1.43 * 1e-3 * (WMAP9.h ** 3)
+    # NEW_NORM24 = 2.89 * 1e-3 * (WMAP9.h ** 3)
+    # NEW_NORM25 = 2.12 * 1e-3 * (WMAP9.h ** 3)
+
+    # NEW_LOG_M_BREAK21 = 0 - 2. * np.log10(WMAP9.h)
+    # NEW_LOG_M_BREAK22 = 9.63 - 2. * np.log10(WMAP9.h)
+    # NEW_LOG_M_BREAK23 = 9.70 - 2. * np.log10(WMAP9.h)
+    # NEW_LOG_M_BREAK24 = 9.75 - 2. * np.log10(WMAP9.h)
+    # NEW_LOG_M_BREAK25 = 9.85 - 2. * np.log10(WMAP9.h)
+
+    # NEW_EXP21 = 0
+    # NEW_EXP22 = -1.73
+    # NEW_EXP23 = -1.76
+    # NEW_EXP24 = -1.65
+    # NEW_EXP25 = -1.65
+
+    # NEW_log_m_gal = Sesana2013_DoubleSchechter._log_mbh_to_log_mgal(NEW_log_mbh,
+    #                                                                 NEW_ALPHA,
+    #                                                                 NEW_BETA)
+    # NEW_t_term = Sesana2013_DoubleSchechter._timescale(NEW_log_m_gal,
+    #                                                     NEW_z, NEW_q,
+    #                                                     NEW_T_NORM, NEW_R_PROJ)
+
+    # NEW_t_z = WMAP9.age(NEW_z).to(u.Gyr).value
+
+    # NEW_t_term = np.where(NEW_t_term > NEW_t_z, np.inf, NEW_t_term)
+
+    # NEW_delta_z = Z_AT_VALUE(NEW_t_z - NEW_t_term) - NEW_z
+
+    # NEW_norm1 = np.array([NEW_NORM11, NEW_NORM12, NEW_NORM13, NEW_NORM14,
+    #                       NEW_NORM15])
+    # NEW_log_m_break1 = np.array([NEW_LOG_M_BREAK11, NEW_LOG_M_BREAK12,
+    #                               NEW_LOG_M_BREAK13, NEW_LOG_M_BREAK14,
+    #                               NEW_LOG_M_BREAK15])
+    # NEW_exp1 = np.array([NEW_EXP11, NEW_EXP12, NEW_EXP13, NEW_EXP14,
+    #                       NEW_EXP15])
+
+    # NEW_norm2 = np.array([NEW_NORM21, NEW_NORM22, NEW_NORM23, NEW_NORM24,
+    #                       NEW_NORM25])
+    # NEW_log_m_break2 = np.array([NEW_LOG_M_BREAK21, NEW_LOG_M_BREAK22,
+    #                               NEW_LOG_M_BREAK23, NEW_LOG_M_BREAK24,
+    #                               NEW_LOG_M_BREAK25])
+    # NEW_exp2 = np.array([NEW_EXP21, NEW_EXP22, NEW_EXP23, NEW_EXP24,
+    #                       NEW_EXP25])
+
+    # NEW_m_term = Sesana2013_DoubleSchechter._mass_function(NEW_log_m_gal,
+    #                                                         NEW_z + NEW_delta_z,
+    #                                                         norm1=NEW_norm1,
+    #                                                         log_m_break1=NEW_log_m_break1,
+    #                                                         exp1=NEW_exp1,
+    #                                                         norm2=NEW_norm2,
+    #                                                         log_m_break2=NEW_log_m_break2,
+    #                                                         exp2=NEW_exp2)
+
+    # NEW_f_term = Sesana2013_DoubleSchechter._pair_fraction(NEW_log_m_gal,
+    #                                                        NEW_z + NEW_delta_z,
+    #                                                        NEW_q,
+    #                                   NEW_local_pair_fraction1,
+    #                                   NEW_local_pair_fraction2,
+    #                                   NEW_local_pair_fraction3,
+    #                                   NEW_pair_fraction_exponent1,
+    #                                   NEW_pair_fraction_exponent2,
+    #                                   NEW_pair_fraction_exponent3, NEW_q_min)
+
     main()
