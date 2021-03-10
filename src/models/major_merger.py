@@ -1126,8 +1126,8 @@ class Sesana2013_DoubleSchechter(FittableModel):
                                          pair_fraction_exponent2,
                                          pair_fraction_exponent3]),
                                axis=0, bounds_error=False, kind='previous',
-                               fill_value=(local_pair_fraction1,
-                                           local_pair_fraction3))
+                               fill_value=(pair_fraction_exponent1,
+                                           pair_fraction_exponent3))
 
         super().__init__(alpha, beta, norm11, norm12, norm13, norm14, norm15,
                          norm21, norm22, norm23, norm24, norm25,
