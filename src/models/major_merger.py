@@ -978,8 +978,8 @@ class Sesana2013_Schechter(FittableModel):
         if np.ndim(frac) >= 2:
             frac = np.diagonal(frac)
 
-        # frac = np.where(frac < 0, 0, frac)
-        # frac = np.where(frac > 1, 1, frac)
+        frac = np.where(frac < 0, 0, frac)
+        frac = np.where(frac > 1, 1, frac)
 
         return - frac / (q * np.log(q_min))
 
@@ -1191,8 +1191,8 @@ class Sesana2013_DoubleSchechter(FittableModel):
         if np.ndim(frac) >= 2:
             frac = np.diagonal(frac)
 
-        # frac = np.where(frac < 0, 0, frac)
-        # frac = np.where(frac > 1, 1, frac)
+        frac = np.where(frac < 0, 0, frac)
+        frac = np.where(frac > 1, 1, frac)
 
         return - frac / (q * np.log(q_min))
 
@@ -1471,8 +1471,8 @@ class Sesana2013_TripleSchechter(FittableModel):
         if np.ndim(frac) >= 2:
             frac = np.diagonal(frac)
 
-        # frac = np.where(frac < 0, 0, frac)
-        # frac = np.where(frac > 1, 1, frac)
+        frac = np.where(frac < 0, 0, frac)
+        frac = np.where(frac > 1, 1, frac)
 
         return - frac / (q * np.log(q_min))
 
