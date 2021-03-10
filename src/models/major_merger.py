@@ -1126,8 +1126,8 @@ class Sesana2013_DoubleSchechter(FittableModel):
                                          pair_fraction_exponent2,
                                          pair_fraction_exponent3]),
                                axis=0, bounds_error=False, kind='previous',
-                               fill_value=(pair_fraction_exponent1,
-                                           pair_fraction_exponent3))
+                               fill_value=(local_pair_fraction1,
+                                           local_pair_fraction3))
 
         super().__init__(alpha, beta, norm11, norm12, norm13, norm14, norm15,
                          norm21, norm22, norm23, norm24, norm25,
@@ -1156,6 +1156,7 @@ class Sesana2013_DoubleSchechter(FittableModel):
                                                        ) - (b / (2 * gamma))),
                                       log_m_bulge - np.log10(.25)))
         return log_m_gal
+
 
     def _mass_function(self, log_m, z, norm1=None, norm2=None,
                        log_m_break1=None, log_m_break2=None, exp1=None,
@@ -1186,13 +1187,14 @@ class Sesana2013_DoubleSchechter(FittableModel):
                        pair_fraction_exponent1, pair_fraction_exponent2,
                        pair_fraction_exponent3, q_min):
         frac = self.local_pf(log_m) * ((1 + z) ** self.pf_exp(log_m))
+
         if np.ndim(frac) >= 2:
             frac = np.diagonal(frac)
 
         # frac = np.where(frac < 0, 0, frac)
         # frac = np.where(frac > 1, 1, frac)
 
-        return - frac  / (q * np.log(q_min))
+        return - frac / (q * np.log(q_min))
 
     @staticmethod
     def _timescale(log_m, z, q, t_norm, r_proj):
@@ -1556,14 +1558,14 @@ def main():
 # Main body
 if __name__ == '__main__':
     # NEW_log_mbh = 10
-    # NEW_z = 0
+    # NEW_z = .9
     # NEW_q = .25
 
     # NEW_ALPHA = 8.46
     # NEW_BETA = 1.05
 
-    # NEW_R_PROJ = 20
-    # NEW_T_NORM = 2.2
+    # NEW_R_PROJ = 100
+    # NEW_T_NORM = 1.1
 
     # NEW_NORM11 = 0.0133 * (WMAP9.h ** 3)
     # NEW_NORM12 = 2.89 * 1e-3 * (WMAP9.h ** 3)
@@ -1600,6 +1602,16 @@ if __name__ == '__main__':
     # NEW_EXP23 = -1.76
     # NEW_EXP24 = -1.65
     # NEW_EXP25 = -1.65
+
+    # NEW_LOCAL_PAIR_FRACTION1 = .0390
+    # NEW_LOCAL_PAIR_FRACTION2 = .0728
+    # NEW_LOCAL_PAIR_FRACTION3 = .167
+
+    # NEW_PAIR_FRACTION_EXPONENT1 = 3.13
+    # NEW_PAIR_FRACTION_EXPONENT2 = 2.04
+    # NEW_PAIR_FRACTION_EXPONENT3 = .52
+
+    # NEW_Q_MIN = .25
 
     # NEW_log_m_gal = Sesana2013_DoubleSchechter._log_mbh_to_log_mgal(NEW_log_mbh,
     #                                                                 NEW_ALPHA,
@@ -1640,13 +1652,20 @@ if __name__ == '__main__':
     #                                                         exp2=NEW_exp2)
 
     # NEW_f_term = Sesana2013_DoubleSchechter._pair_fraction(NEW_log_m_gal,
-    #                                                        NEW_z + NEW_delta_z,
-    #                                                        NEW_q,
-    #                                   NEW_local_pair_fraction1,
-    #                                   NEW_local_pair_fraction2,
-    #                                   NEW_local_pair_fraction3,
-    #                                   NEW_pair_fraction_exponent1,
-    #                                   NEW_pair_fraction_exponent2,
-    #                                   NEW_pair_fraction_exponent3, NEW_q_min)
+    #                                                         NEW_z + NEW_delta_z,
+    #                                                         NEW_q,
+    #                                   NEW_LOCAL_PAIR_FRACTION1,
+    #                                   NEW_LOCAL_PAIR_FRACTION2,
+    #                                   NEW_LOCAL_PAIR_FRACTION3,
+    #                                   NEW_PAIR_FRACTION_EXPONENT1,
+    #                                   NEW_PAIR_FRACTION_EXPONENT2,
+    #                                   NEW_PAIR_FRACTION_EXPONENT3, NEW_Q_MIN)
+
+    # NEW_dtdz = 1 / ((WMAP9.H0 * (1 + NEW_z)
+    #                  * np.sqrt(WMAP9.Om0 * ((1 + NEW_z) ** 3)
+    #                            + WMAP9.Ok0 * ((1 + NEW_z) ** 2)
+    #                            + WMAP9.Ode0)).to(u.Gyr ** -1)).value
+
+    # NEW_n_dens = NEW_m_term * NEW_f_term * NEW_dtdz / NEW_t_term
 
     main()
