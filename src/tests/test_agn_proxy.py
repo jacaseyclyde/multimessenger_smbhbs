@@ -168,3 +168,21 @@ def test_QuasarProxyBinaries_set():
                                 std_log_q=[1/np.sqrt(2*np.pi), 1/np.sqrt(2*np.pi)],
                                 n_models=2)
     assert (model(log_m, z, q) / dtdz == [1, 1]).all()
+
+
+def test_ModifiedSchechter():
+    from ..models.agn_proxy import ModifiedSchechter
+
+    model = ModifiedSchechter()
+    assert model(1) == 0
+
+
+def test_ModifiedSchechter_set():
+    from ..models.agn_proxy import ModifiedSchechter
+
+    model = ModifiedSchechter(normalization=[1, 1],
+                              sigma_break=[1, 1],
+                              alpha=[0, 0],
+                              beta=[1, 1],
+                              n_models=2)
+    assert (model(1) == [0, 0]).all()

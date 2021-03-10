@@ -14,6 +14,7 @@ from astropy.modeling import (FittableModel, Fittable1DModel, Fittable2DModel,
                               Parameter)
 from astropy.cosmology import WMAP9, z_at_value
 
+from scipy.special import gamma, hyp2f1
 from scipy.stats import lognorm
 
 # Global variables
@@ -281,6 +282,30 @@ class QuasarProxyBinaries(FittableModel):
         return (binary_normalization
                 * (10 ** (log_normalization - log_mass_distribution)) * dtdz
                 * lognorm.pdf(q, std_log_q, loc=mu_log_q))
+
+
+class ModifiedSchechter(Fittable1DModel):
+
+    normalization = Parameter(default=1)
+    sigma_break = Parameter(default=1)
+    alpha = Parameter(default=0)
+    beta = Parameter(default=1)
+
+    @staticmethod
+    def evaluate(dispersion, normalization, sigma_break, alpha, beta):
+        return (normalization * beta * ((dispersion / sigma_break) ** alpha)
+                * np.exp(-(dispersion / sigma_break) ** beta)
+                / (gamma(alpha / beta) * dispersion))
+
+
+# class Marconi2004BHMF(Fittable1DModel):
+
+#     a = Parameter(default=0)
+#     b = Parameter(default=0)
+
+#     @staticmethod
+#     def evaluate(log_m)
+
 
 
 # Function declarations
