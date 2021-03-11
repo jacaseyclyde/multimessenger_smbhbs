@@ -17,7 +17,7 @@ Project Organization
     │
     ├── docs               <- A default Sphinx project; see sphinx-doc.org for details
     │
-    ├── models             <- Trained and serialized models, model predictions, or model summaries
+    ├── models             <- Initialized models
     │
     ├── notebooks          <- Jupyter notebooks. Naming convention is a number (for ordering),
     │                         the creator's initials, and a short `-` delimited description, e.g.
@@ -35,19 +35,17 @@ Project Organization
     ├── src                <- Source code for use in this project.
     │   ├── __init__.py    <- Makes src a Python module
     │   │
-    │   ├── data           <- Scripts to download or generate data
-    │   │   └── make_dataset.py
+    │   ├── models         <- Scripts to define SMBHB population models
+    │   │   ├── agn_proxy.py
+    │   │   └── major_merger.py
     │   │
-    │   ├── features       <- Scripts to turn raw data into features for modeling
-    │   │   └── build_features.py
+    │   ├── tests       <- Scripts for testing functionality (currently limited to basic implementation tests)
+    │   │   ├── test_agn_proxy.py
+    │   │   ├── test_major_merger.py
+    │   │   └── test_populations.py
     │   │
-    │   ├── models         <- Scripts to train models and then use trained models to make
-    │   │   │                 predictions
-    │   │   ├── predict_model.py
-    │   │   └── train_model.py
-    │   │
-    │   └── visualization  <- Scripts to create exploratory and results oriented visualizations
-    │       └── visualize.py
+    │   └── tools  <- Scripts to automate how populations are generated and dealt with
+    │       └── populations.py
     │
     └── tox.ini            <- tox file with settings for running tox; see tox.readthedocs.io
 
