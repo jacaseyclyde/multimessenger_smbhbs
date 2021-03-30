@@ -1012,12 +1012,12 @@ class Sesana2013_Schechter(FittableModel):
         m_term = self._mass_function(log_m_gal, z + delta_z, norm,
                                      log_m_break, exp)
         f_term = self._pair_fraction(log_m_gal, z + delta_z, q,
-                                      local_pair_fraction,
-                                      pair_fraction_exponent, q_min)
+                                     local_pair_fraction,
+                                     pair_fraction_exponent, q_min)
         dtdz = 1 / ((WMAP9.H0 * (1 + z)
-                      * np.sqrt(WMAP9.Om0 * ((1 + z) ** 3)
-                                + WMAP9.Ok0 * ((1 + z) ** 2)
-                                + WMAP9.Ode0)).to(u.Gyr ** -1)).value
+                     * np.sqrt(WMAP9.Om0 * ((1 + z) ** 3)
+                               + WMAP9.Ok0 * ((1 + z) ** 2)
+                               + WMAP9.Ode0)).to(u.Gyr ** -1)).value
 
         n_dens = m_term * f_term * dtdz / t_term
         return np.where(delta_z < 0, 0, n_dens)
