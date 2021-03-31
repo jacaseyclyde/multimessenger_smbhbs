@@ -14,6 +14,7 @@ from astropy.modeling import (FittableModel, Fittable1DModel, Fittable2DModel,
                               Parameter)
 from astropy.cosmology import WMAP9, z_at_value
 
+from scipy.integrate import quad, quad_vec, quadrature
 from scipy.special import gamma, hyp2f1
 from scipy.stats import lognorm
 
@@ -194,12 +195,21 @@ class Hopkins2007QuasarFormationDensity(Fittable2DModel):
                               + WMAP9.Ok0 * ((1 + z) ** 2)
                               + WMAP9.Ode0)).to(u.Gyr ** -1).value
 
-        z_rescale = (1 + z) / (1 + z_ref)
-        xi = np.log10(z_rescale)
+        # # redshift rescalings
+        # z_rescale = (1 + z) / (1 + z_ref)
+        # xi = np.log10(z_rescale)
 
-        z_term = np.maximum(1, z_rescale ** log_formation_rate_power_law_slope)
+        # # log form of Hopkins et al. (2007) eq. 25
+        # z_term = np.where(z <= z_ref, 1,
+        #                   z_rescale ** log_formation_rate_power_law_slope)
+        # log_normalization = log_formation_rate_normalization + np.log10(z_term)
+        # redshift rescalings
+        xi = np.log10((1 + z) / (1 + z_ref))
 
-        log_normalization = log_formation_rate_normalization + np.log10(z_term)
+        # log form of Hopkins et al. (2007) eq. 25
+        z_term = np.where(z <= z_ref, 0,
+                          xi * log_formation_rate_power_law_slope)
+        log_normalization = log_formation_rate_normalization + z_term
 
         high_mass_slope = (2 * high_mass_slope_normalization
                            / ((10 ** (xi * high_mass_slope_k_1))
@@ -257,12 +267,29 @@ class QuasarProxyBinaries(FittableModel):
                               + WMAP9.Ok0 * ((1 + z) ** 2)
                               + WMAP9.Ode0)).to(u.Gyr ** -1).value
 
-        z_rescale = (1 + z) / (1 + z_ref)
-        xi = np.log10(z_rescale)
+        # # redshift rescalings
+        # z_rescale = (1 + z) / (1 + z_ref)
+        # xi = np.log10(z_rescale)
 
-        z_term = np.maximum(1, z_rescale) ** log_formation_rate_power_law_slope
+        # # log form of Hopkins et al. (2007) eq. 25
+        # z_term = np.where(z <= z_ref, 1,
+        #                   z_rescale ** log_formation_rate_power_law_slope)
+        # log_normalization = log_formation_rate_normalization + np.log10(z_term)
 
-        log_normalization = log_formation_rate_normalization + np.log10(z_term)
+        # z_rescale = (1 + z) / (1 + z_ref)
+        # xi = np.log10(z_rescale)
+
+        # z_term = np.minimum(1, z_rescale ** log_formation_rate_power_law_slope)
+
+        # log_normalization = log_formation_rate_normalization + np.log10(z_term)
+
+        # redshift rescalings
+        xi = np.log10((1 + z) / (1 + z_ref))
+
+        # log form of Hopkins et al. (2007) eq. 25
+        z_term = np.where(z <= z_ref, 0,
+                          xi * log_formation_rate_power_law_slope)
+        log_normalization = log_formation_rate_normalization + z_term
 
         high_mass_slope = (2 * high_mass_slope_normalization
                            / ((10 ** (xi * high_mass_slope_k_1))
@@ -298,19 +325,269 @@ class ModifiedSchechter(Fittable1DModel):
                 / (gamma(alpha / beta) * dispersion))
 
 
-# class Marconi2004BHMF(Fittable1DModel):
+class Marconi2004BHMF(Fittable1DModel):
 
-#     a = Parameter(default=0)
-#     b = Parameter(default=0)
+    mass_dispersion_intercept = Parameter(default=0)
+    mass_dispersion_slope = Parameter(default=0)
+    intrinsic_scatter = Parameter(default=1)
 
-#     @staticmethod
-#     def evaluate(log_m)
+    dispersion_norm = Parameter(default=1)
+    log_dispersion_break = Parameter(default=0)
+    dispersion_alpha = Parameter(default=0)
+    dispersion_beta = Parameter(default=1)
+
+    # def __init__(self,
+    #              mass_dispersion_intercept=mass_dispersion_intercept.default,
+    #              mass_dispersion_slope=mass_dispersion_slope.default,
+    #              intrinsic_scatter=intrinsic_scatter.default,
+    #              dispersion_norm=dispersion_norm.default,
+    #              dispersion_break=dispersion_break.default,
+    #              dispersion_alpha=dispersion_alpha.default,
+    #              dispersion_beta=dispersion_beta.default, **kwargs):
+    #     self.evaluate = np.vectorize(self.scalar_evaluate)
+    #     super().__init__(mass_dispersion_intercept, mass_dispersion_slope,
+    #                      intrinsic_scatter, dispersion_norm, dispersion_break,
+    #                      dispersion_alpha, dispersion_beta, **kwargs)
+
+    @staticmethod
+    def _lognorm(log_y, log_x, a, b, y_dispersion):
+        coeffs = 1 / (np.sqrt(2 * np.pi) * y_dispersion)
+        exponential = np.exp(-.5 * ((log_y - a - (b * log_x))
+                                    / y_dispersion) ** 2)
+        return coeffs * exponential
+
+    @staticmethod
+    def _velocity_dispersion(log_vel_disp, phi_norm, log_sigma_break, alpha,
+                             beta):
+        break_term = 10 ** (alpha * (log_vel_disp - log_sigma_break))
+        exp_term = np.exp(-(10 ** (beta * (log_vel_disp - log_sigma_break))))
+        numerator = phi_norm * beta * break_term * exp_term * np.log(10)
+        denominator = gamma(alpha / beta)
+        return numerator / denominator
+
+    def _integrand(self, log_vel_disp, log_m, mass_dispersion_intercept,
+                   mass_dispersion_slope, intrinsic_scatter,
+                   dispersion_norm, log_sigma_break, alpha, beta):
+        log_m_prob = self._lognorm(log_m, log_vel_disp,
+                                   mass_dispersion_intercept,
+                                   mass_dispersion_slope, intrinsic_scatter)
+        vel_disp = self._velocity_dispersion(log_vel_disp, dispersion_norm,
+                                             log_sigma_break, alpha, beta)
+        return log_m_prob * vel_disp
+
+    def evaluate(self, log_m, mass_dispersion_intercept, mass_dispersion_slope,
+                 intrinsic_scatter, dispersion_norm, log_dispersion_break,
+                 dispersion_alpha, dispersion_beta):
+        f = lambda x: self._integrand(x, log_m, mass_dispersion_intercept,
+                                      mass_dispersion_slope, intrinsic_scatter,
+                                      dispersion_norm, log_dispersion_break,
+                                      dispersion_alpha, dispersion_beta)
+        return quad_vec(f, -7, 5)[0]
 
 
+class Hopkins2007QuasarNumberDensity(Fittable1DModel):
+
+    log_l_min = Parameter(default=0)
+    log_l_max = Parameter(default=1)
+
+    log_norm = Parameter(default=0)
+    log_break_luminosity_norm = Parameter(default=0)
+    log_break_luminosity_k1 = Parameter(default=0)
+    log_break_luminosity_k2 = Parameter(default=0)
+    log_break_luminosity_k3 = Parameter(default=0)
+    faint_end_slope_norm = Parameter(default=0)
+    faint_end_slope_k = Parameter(default=0)
+    bright_end_slope_norm = Parameter(default=0)
+    bright_end_slope_k1 = Parameter(default=0)
+    bright_end_slope_k2 = Parameter(default=0)
+    z_ref = Parameter(default=2)
+
+    @staticmethod
+    def _double_power_law(log_l, log_norm, log_break_luminosity,
+                          faint_end_slope, bright_end_slope):
+        log_l_ratio = log_l - log_break_luminosity
+        faint_term = 10 ** (faint_end_slope * log_l_ratio)
+        bright_term = 10 ** (bright_end_slope * log_l_ratio)
+        log_denom = np.log10(faint_term + bright_term)
+        return 10 ** (log_norm - log_denom)
+
+    def evaluate(self, z, log_l_min, log_l_max, log_norm,
+                 log_break_luminosity_norm, log_break_luminosity_k1,
+                 log_break_luminosity_k2, log_break_luminosity_k3,
+                 faint_end_slope_norm, faint_end_slope_k,
+                 bright_end_slope_norm, bright_end_slope_k1,
+                 bright_end_slope_k2, z_ref):
+        # rescale the redshift
+        xi = np.log10((1 + z) / (1 + z_ref))
+        log_break_luminosity = (log_break_luminosity_norm
+                                + (log_break_luminosity_k1 * xi)
+                                + (log_break_luminosity_k2 * (xi ** 2))
+                                + (log_break_luminosity_k3 * (xi ** 3)))
+
+        faint_end_slope = (faint_end_slope_norm
+                           * 10 ** (faint_end_slope_k * xi))
+        bright_end_slope = (2 * bright_end_slope_norm
+                            / ((10 ** (bright_end_slope_k1 * xi))
+                               + (10 ** (bright_end_slope_k2 * xi))))
+
+        f = lambda log_l: self._double_power_law(log_l, log_norm,
+                                                 log_break_luminosity,
+                                                 faint_end_slope,
+                                                 bright_end_slope)
+
+        return quad_vec(f, log_l_min[0], log_l_max[0])[0]
+
+
+class Goulding2019J1010Binaries(Fittable2DModel):
+
+    binary_normalization = Parameter(default=1)
+
+    mass_dispersion_intercept = Parameter(default=0)
+    mass_dispersion_slope = Parameter(default=0)
+    intrinsic_scatter = Parameter(default=1)
+
+    dispersion_norm = Parameter(default=1)
+    log_dispersion_break = Parameter(default=0)
+    dispersion_alpha = Parameter(default=0)
+    dispersion_beta = Parameter(default=1)
+
+    log_l_min = Parameter(default=0)
+    log_l_max = Parameter(default=1)
+
+    log_dens_norm = Parameter(default=0)
+    log_break_luminosity_norm = Parameter(default=0)
+    log_break_luminosity_k1 = Parameter(default=0)
+    log_break_luminosity_k2 = Parameter(default=0)
+    log_break_luminosity_k3 = Parameter(default=0)
+    faint_end_slope_norm = Parameter(default=0)
+    faint_end_slope_k = Parameter(default=0)
+    bright_end_slope_norm = Parameter(default=0)
+    bright_end_slope_k1 = Parameter(default=0)
+    bright_end_slope_k2 = Parameter(default=0)
+    z_ref = Parameter(default=2)
+
+    @staticmethod
+    def _lognorm(log_y, log_x, a, b, y_dispersion):
+        coeffs = 1 / (np.sqrt(2 * np.pi) * y_dispersion)
+        exponential = np.exp(-.5 * ((log_y - a - (b * log_x))
+                                    / y_dispersion) ** 2)
+        return coeffs * exponential
+
+    @staticmethod
+    def _velocity_dispersion(log_vel_disp, phi_norm, log_sigma_break, alpha,
+                             beta):
+        break_term = 10 ** (alpha * (log_vel_disp - log_sigma_break))
+        exp_term = np.exp(-(10 ** (beta * (log_vel_disp - log_sigma_break))))
+        numerator = phi_norm * beta * break_term * exp_term * np.log(10)
+        denominator = gamma(alpha / beta)
+        return numerator / denominator
+
+    def _integrand(self, log_vel_disp, log_m, mass_dispersion_intercept,
+                   mass_dispersion_slope, intrinsic_scatter,
+                   dispersion_norm, log_sigma_break, alpha, beta):
+        log_m_prob = self._lognorm(log_m, log_vel_disp,
+                                   mass_dispersion_intercept,
+                                   mass_dispersion_slope, intrinsic_scatter)
+        vel_disp = self._velocity_dispersion(log_vel_disp, dispersion_norm,
+                                             log_sigma_break, alpha, beta)
+        return log_m_prob * vel_disp
+
+    def _mass_function(self, log_m, mass_dispersion_intercept,
+                       mass_dispersion_slope, intrinsic_scatter,
+                       dispersion_norm, log_dispersion_break, dispersion_alpha,
+                       dispersion_beta):
+        f = lambda x: self._integrand(x, log_m, mass_dispersion_intercept,
+                                      mass_dispersion_slope, intrinsic_scatter,
+                                      dispersion_norm, log_dispersion_break,
+                                      dispersion_alpha, dispersion_beta)
+        return quad_vec(f, -7, 5)[0]
+
+    @staticmethod
+    def _double_power_law(log_l, log_norm, log_break_luminosity,
+                          faint_end_slope, bright_end_slope):
+        log_l_ratio = log_l - log_break_luminosity
+        faint_term = 10 ** (faint_end_slope * log_l_ratio)
+        bright_term = 10 ** (bright_end_slope * log_l_ratio)
+        log_denom = np.log10(faint_term + bright_term)
+        return 10 ** (log_norm - log_denom)
+
+    def _number_density(self, z, log_l_min, log_l_max, log_norm,
+                        log_break_luminosity_norm, log_break_luminosity_k1,
+                        log_break_luminosity_k2, log_break_luminosity_k3,
+                        faint_end_slope_norm, faint_end_slope_k,
+                        bright_end_slope_norm, bright_end_slope_k1,
+                        bright_end_slope_k2, z_ref):
+        # rescale the redshift
+        xi = np.log10((1 + z) / (1 + z_ref))
+        log_break_luminosity = (log_break_luminosity_norm
+                                + (log_break_luminosity_k1 * xi)
+                                + (log_break_luminosity_k2 * (xi ** 2))
+                                + (log_break_luminosity_k3 * (xi ** 3)))
+
+        faint_end_slope = (faint_end_slope_norm
+                           * 10 ** (faint_end_slope_k * xi))
+        bright_end_slope = (2 * bright_end_slope_norm
+                            / ((10 ** (bright_end_slope_k1 * xi))
+                               + (10 ** (bright_end_slope_k2 * xi))))
+
+        f = lambda log_l: self._double_power_law(log_l, log_norm,
+                                                 log_break_luminosity,
+                                                 faint_end_slope,
+                                                 bright_end_slope)
+
+        return quad_vec(f, log_l_min[0], log_l_max[0])[0]
+
+    def evaluate(self, log_m, z, binary_normalization,
+                 mass_dispersion_intercept, mass_dispersion_slope,
+                 intrinsic_scatter, dispersion_norm, log_dispersion_break,
+                 dispersion_alpha, dispersion_beta, log_l_min, log_l_max,
+                 log_dens_norm, log_break_luminosity_norm,
+                 log_break_luminosity_k1, log_break_luminosity_k2,
+                 log_break_luminosity_k3, faint_end_slope_norm,
+                 faint_end_slope_k, bright_end_slope_norm, bright_end_slope_k1,
+                 bright_end_slope_k2, z_ref):
+        n_dens = self._number_density(z, log_l_min, log_l_max, log_dens_norm,
+                                      log_break_luminosity_norm,
+                                      log_break_luminosity_k1,
+                                      log_break_luminosity_k2,
+                                      log_break_luminosity_k3,
+                                      faint_end_slope_norm, faint_end_slope_k,
+                                      bright_end_slope_norm,
+                                      bright_end_slope_k1, bright_end_slope_k2,
+                                      z_ref)
+        bhmf = self._mass_function(log_m, mass_dispersion_intercept,
+                                   mass_dispersion_slope, intrinsic_scatter,
+                                   dispersion_norm, log_dispersion_break,
+                                   dispersion_alpha, dispersion_beta)
+
+        return binary_normalization * n_dens * bhmf
 
 # Function declarations
 
 def main():
+    model = Goulding2019J1010Binaries(binary_normalization=1,
+                                      mass_dispersion_intercept=8.30-(2.3*4.11),
+                                      mass_dispersion_slope=4.11,
+                                      intrinsic_scatter=.3,
+                                      dispersion_norm=0.002,
+                                      log_dispersion_break=np.log10(88.8),
+                                      dispersion_alpha=6.5,
+                                      dispersion_beta=1.93,
+                                      log_l_min=11.894149325614856,
+                                      log_l_max=12.894149325614856,
+                                      log_dens_norm=-4.825,
+                                      log_break_luminosity_norm=13.036,
+                                      log_break_luminosity_k1=0.632,
+                                      log_break_luminosity_k2=-11.76,
+                                      log_break_luminosity_k3=-14.25,
+                                      faint_end_slope_norm=0.417,
+                                      faint_end_slope_k=-0.623,
+                                      bright_end_slope_norm=2.174,
+                                      bright_end_slope_k1=1.460,
+                                      bright_end_slope_k2=-0.793,
+                                      z_ref=2)
+    temp = model(8, 0)
+    print(temp)
     args = sys.argv[1:]
 
     if not args:
