@@ -186,3 +186,95 @@ def test_ModifiedSchechter_set():
                               beta=[1, 1],
                               n_models=2)
     assert (model(1) == [0, 0]).all()
+
+
+# def test_Marconi2004BHMF_probability():
+#     from ..models.agn_proxy import Marconi2004BHMF
+#     import numpy as np
+
+#     model = Marconi2004BHMF()
+#     assert model._lognorm(0, 0, 0, 0, 1) == 1 / np.sqrt(2 * np.pi)
+
+def test_Marconi2004BHMF():
+    from ..models.agn_proxy import Marconi2004BHMF
+
+    model = Marconi2004BHMF()
+    assert model(0) == 0
+
+
+def test_Marconi2004BHMF_set():
+    from ..models.agn_proxy import Marconi2004BHMF
+
+    model = Marconi2004BHMF(mass_dispersion_intercept=[0, 0, 0],
+                            mass_dispersion_slope=[0, 0, 0],
+                            intrinsic_scatter=[1, 1, 1],
+                            dispersion_norm=[1, 1, 1],
+                            log_dispersion_break=[0, 0, 0],
+                            dispersion_alpha=[0, 0, 0],
+                            dispersion_beta=[1, 1, 1],
+                            n_models=3)
+    assert (model(0) == [0, 0, 0]).all()
+
+
+def test_Hopkins2007QuasarNumberDensity():
+    from pytest import approx
+    from ..models.agn_proxy import Hopkins2007QuasarNumberDensity
+
+    model = Hopkins2007QuasarNumberDensity()
+    assert model(0) == approx(.5)
+
+
+def test_Hopkins2007QuasarNumberDensity_set():
+    from pytest import approx
+    from ..models.agn_proxy import Hopkins2007QuasarNumberDensity
+
+    model = Hopkins2007QuasarNumberDensity(log_l_min=[0, 0, 0],
+                                           log_l_max=[1, 1, 1],
+                                           log_norm=[0, 0, 0],
+                                           log_break_luminosity_norm=[0, 0, 0],
+                                           log_break_luminosity_k1=[0, 0, 0],
+                                           log_break_luminosity_k2=[0, 0, 0],
+                                           log_break_luminosity_k3=[0, 0, 0],
+                                           faint_end_slope_norm=[0, 0, 0],
+                                           faint_end_slope_k=[0, 0, 0],
+                                           bright_end_slope_norm=[0, 0, 0],
+                                           bright_end_slope_k1=[0, 0, 0],
+                                           bright_end_slope_k2=[0, 0, 0],
+                                           z_ref=[2, 2, 2],
+                                           n_models=3)
+    assert (model(0) == [approx(.5), approx(.5), approx(.5)]).all()
+
+
+def test_Goulding2019J1010Binaries():
+    from ..models.agn_proxy import Goulding2019J1010Binaries
+
+    model = Goulding2019J1010Binaries()
+    assert model(0, 0) == 0
+
+
+def test_Goulding2019J1010Binaries_set():
+    from ..models.agn_proxy import Goulding2019J1010Binaries
+
+    model = Goulding2019J1010Binaries(binary_normalization=[1, 1, 1],
+                                      mass_dispersion_intercept=[0, 0, 0],
+                                      mass_dispersion_slope=[0, 0, 0],
+                                      intrinsic_scatter=[1, 1, 1],
+                                      dispersion_norm=[1, 1, 1],
+                                      log_dispersion_break=[0, 0, 0],
+                                      dispersion_alpha=[0, 0, 0],
+                                      dispersion_beta=[1, 1, 1],
+                                      log_l_min=[0, 0, 0],
+                                      log_l_max=[1, 1, 1],
+                                      log_dens_norm=[0, 0, 0],
+                                      log_break_luminosity_norm=[0, 0, 0],
+                                      log_break_luminosity_k1=[0, 0, 0],
+                                      log_break_luminosity_k2=[0, 0, 0],
+                                      log_break_luminosity_k3=[0, 0, 0],
+                                      faint_end_slope_norm=[0, 0, 0],
+                                      faint_end_slope_k=[0, 0, 0],
+                                      bright_end_slope_norm=[0, 0, 0],
+                                      bright_end_slope_k1=[0, 0, 0],
+                                      bright_end_slope_k2=[0, 0, 0],
+                                      z_ref=[2, 2, 2],
+                                      n_models=3)
+    assert (model(0, 0) == [0, 0, 0]).all()
