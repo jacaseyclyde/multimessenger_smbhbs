@@ -1,21 +1,22 @@
-#!/user/bin/env python3 -tt
-"""
-Module documentation.
+"""AGN-proxy models of SMBHB populations.
+
+Models of supermassive black hole binary (SMBHB) populations that
+utilize active galactic nuclei (AGN) as a proxy for SMBHB evolution.
+
 """
 
 # Imports
 import sys
-#import os
 
 import numpy as np
 import astropy.units as u
 from astropy.units import Quantity
 from astropy.modeling import (FittableModel, Fittable1DModel, Fittable2DModel,
                               Parameter)
-from astropy.cosmology import WMAP9, z_at_value
+from astropy.cosmology import WMAP9
 
-from scipy.integrate import quad, quad_vec, quadrature
-from scipy.special import gamma, hyp2f1
+from scipy.integrate import quad_vec
+from scipy.special import gamma
 from scipy.stats import lognorm
 
 # Global variables
@@ -23,6 +24,41 @@ from scipy.stats import lognorm
 
 # Class declarations
 class DoublePowerLaw1D(Fittable1DModel):
+    r"""Double power-law model.
+
+    Parameters
+    ----------
+    normalization : float
+        Normalization.
+    x_break : float
+        Break coordinate.
+    slope_1 : float
+        Low-end slope.
+    slope_2 : float
+        High-end slope.
+
+    See Also
+    --------
+    astropy.modeling.Model :
+        Astropy model base class.
+
+    Notes
+    -----
+    Double power law of the form [1]_:
+
+    .. math::
+
+        \phi(L) \equiv \frac{d \Phi}{d \log L}
+        = \frac{\phi_{*}}{(L / L_{*})^{\gamma_{1}} + (L / L_{*})^{\gamma_{2}}}
+
+    References
+    ----------
+    .. [1] P. F. Hopkins, G. T. Richards, and L. Hernquist,
+       "An Observational Determination of the Bolometric Quasar
+       Luminosity Function", The Astrophysical Journal 654, 731 (2007).
+
+
+    """
 
     normalization = Parameter(default=2)
     x_break = Parameter(default=1)
@@ -31,8 +67,7 @@ class DoublePowerLaw1D(Fittable1DModel):
 
     @staticmethod
     def evaluate(x, normalization, x_break, slope_1, slope_2):
-        """
-        Calculates the 1D double power law at x.
+        """Calculate the 1D double power law at x.
 
         Parameters
         ----------
@@ -58,6 +93,42 @@ class DoublePowerLaw1D(Fittable1DModel):
 
 
 class Cubic1D(Fittable1DModel):
+    r"""1D cubic model.
+
+    Used to evolve the break parameter over redshift.
+
+    Parameters
+    ----------
+    normalization : float
+        Base 10 logarithmic normalization.
+    k1 : float
+        First cubic coefficient.
+    k2 : float
+        Second cubic coefficient.
+    k3 : float
+        Third cubic coefficient.
+
+    See Also
+    --------
+    astropy.modeling.Model :
+        Astropy model base class.
+
+    Notes
+    -----
+    Implements cubic redshift evolution [1]_:
+
+    .. math::
+
+        \log L_{*} = (\log L_{*})_{0} + k_{L, 1} \xi + k_{L, 2} \xi^{2}
+        + k_{L, 3} \xi^{3}
+
+    References
+    ----------
+    .. [1] P. F. Hopkins, G. T. Richards, and L. Hernquist,
+       "An Observational Determination of the Bolometric Quasar
+       Luminosity Function", The Astrophysical Journal 654, 731 (2007).
+
+    """
 
     normalization = Parameter(default=1)
     k1 = Parameter(default=0)
@@ -66,32 +137,73 @@ class Cubic1D(Fittable1DModel):
 
     @staticmethod
     def evaluate(x, normalization, k1, k2, k3):
-        """
-        Evaluate the 1D cubic model at x.
+        """Evaluate the 1D cubic model at x.
 
         Parameters
         ----------
-        x : TYPE
-            DESCRIPTION.
-        normalization : TYPE
-            DESCRIPTION.
-        k1 : TYPE
-            DESCRIPTION.
-        k2 : TYPE
-            DESCRIPTION.
-        k3 : TYPE
-            DESCRIPTION.
+        x : float
+            The coordinate at which to calculate the cubic function.
+        normalization : float
+            Base 10 logarithmic normalization.
+        k1 : float
+            First cubic coefficient.
+        k2 : float
+            Second cubic coefficient.
+        k3 : float
+            Third cubic coefficient.
 
         Returns
         -------
-        TYPE
-            DESCRIPTION.
+        float
+            The cubic evolved break parameter.
 
         """
         return normalization + (k1 * x) + (k2 * (x ** 2)) + (k3 * (x ** 3))
 
 
 class PiecewisePowerLaw(Fittable1DModel):
+    r"""1D piecewise power law model.
+
+    Used to evolve the quasar formation rate normalization over
+    redshift.
+
+    Parameters
+    ----------
+    normalization : float
+        Power law normalization.
+    k : float
+        Power law exponent.
+    x_reference : float
+        Piecewise reference point.
+
+    See Also
+    --------
+    astropy.modeling.Model :
+        Astropy model base class.
+
+    Notes
+    -----
+    Implements piecewise power law evolution [1]_:
+
+    .. math::
+        :nowrap:
+
+        \begin{equation*}
+        \dot{\phi}_{*}(z) = \begin{cases}
+        (\dot{\phi}_{*})_{0},
+        & z \leq z_{\rm{ref}} \\
+        (\dot{\phi}_{*})_{0} [(1 + z) / (1 + z_{\rm{ref}})]^{k_{\dot{\phi}}},
+        & z > z_{\rm{ref}}
+        \end{cases}
+        \end{equation*}
+
+    References
+    ----------
+    .. [1] P. F. Hopkins, G. T. Richards, and L. Hernquist,
+       "An Observational Determination of the Bolometric Quasar
+       Luminosity Function", The Astrophysical Journal 654, 731 (2007).
+
+    """
 
     normalization = Parameter(default=1)
     k = Parameter(default=0)
@@ -104,19 +216,19 @@ class PiecewisePowerLaw(Fittable1DModel):
 
         Parameters
         ----------
-        x : TYPE
-            DESCRIPTION.
-        normalization : TYPE
-            DESCRIPTION.
-        k : TYPE
-            DESCRIPTION.
-        x_reference : TYPE
-            DESCRIPTION.
+        x : float
+            Position to evaluate power law at.
+        normalization : float
+            Power law normalization.
+        k : float
+            Power law exponent.
+        x_reference : float
+            Piecewise reference point.
 
         Returns
         -------
-        TYPE
-            DESCRIPTION.
+        float
+            Evolved function.
 
         """
         return normalization * np.maximum(1,
@@ -195,14 +307,6 @@ class Hopkins2007QuasarFormationDensity(Fittable2DModel):
                               + WMAP9.Ok0 * ((1 + z) ** 2)
                               + WMAP9.Ode0)).to(u.Gyr ** -1).value
 
-        # # redshift rescalings
-        # z_rescale = (1 + z) / (1 + z_ref)
-        # xi = np.log10(z_rescale)
-
-        # # log form of Hopkins et al. (2007) eq. 25
-        # z_term = np.where(z <= z_ref, 1,
-        #                   z_rescale ** log_formation_rate_power_law_slope)
-        # log_normalization = log_formation_rate_normalization + np.log10(z_term)
         # redshift rescalings
         xi = np.log10((1 + z) / (1 + z_ref))
 
@@ -378,10 +482,10 @@ class Marconi2004BHMF(Fittable1DModel):
     def evaluate(self, log_m, mass_dispersion_intercept, mass_dispersion_slope,
                  intrinsic_scatter, dispersion_norm, log_dispersion_break,
                  dispersion_alpha, dispersion_beta):
-        f = lambda x: self._integrand(x, log_m, mass_dispersion_intercept,
-                                      mass_dispersion_slope, intrinsic_scatter,
-                                      dispersion_norm, log_dispersion_break,
-                                      dispersion_alpha, dispersion_beta)
+        def f(x): return self._integrand(x, log_m, mass_dispersion_intercept,
+                                         mass_dispersion_slope, intrinsic_scatter,
+                                         dispersion_norm, log_dispersion_break,
+                                         dispersion_alpha, dispersion_beta)
         return quad_vec(f, -7, 5)[0]
 
 
@@ -430,10 +534,10 @@ class Hopkins2007QuasarNumberDensity(Fittable1DModel):
                             / ((10 ** (bright_end_slope_k1 * xi))
                                + (10 ** (bright_end_slope_k2 * xi))))
 
-        f = lambda log_l: self._double_power_law(log_l, log_norm,
-                                                 log_break_luminosity,
-                                                 faint_end_slope,
-                                                 bright_end_slope)
+        def f(log_l): return self._double_power_law(log_l, log_norm,
+                                                    log_break_luminosity,
+                                                    faint_end_slope,
+                                                    bright_end_slope)
 
         return quad_vec(f, log_l_min[0], log_l_max[0])[0]
 
@@ -496,10 +600,10 @@ class Goulding2019J1010Binaries(Fittable2DModel):
                        mass_dispersion_slope, intrinsic_scatter,
                        dispersion_norm, log_dispersion_break, dispersion_alpha,
                        dispersion_beta):
-        f = lambda x: self._integrand(x, log_m, mass_dispersion_intercept,
-                                      mass_dispersion_slope, intrinsic_scatter,
-                                      dispersion_norm, log_dispersion_break,
-                                      dispersion_alpha, dispersion_beta)
+        def f(x): return self._integrand(x, log_m, mass_dispersion_intercept,
+                                         mass_dispersion_slope, intrinsic_scatter,
+                                         dispersion_norm, log_dispersion_break,
+                                         dispersion_alpha, dispersion_beta)
         return quad_vec(f, -7, 5)[0]
 
     @staticmethod
@@ -530,10 +634,10 @@ class Goulding2019J1010Binaries(Fittable2DModel):
                             / ((10 ** (bright_end_slope_k1 * xi))
                                + (10 ** (bright_end_slope_k2 * xi))))
 
-        f = lambda log_l: self._double_power_law(log_l, log_norm,
-                                                 log_break_luminosity,
-                                                 faint_end_slope,
-                                                 bright_end_slope)
+        def f(log_l): return self._double_power_law(log_l, log_norm,
+                                                    log_break_luminosity,
+                                                    faint_end_slope,
+                                                    bright_end_slope)
 
         return quad_vec(f, log_l_min[0], log_l_max[0])[0]
 
@@ -564,9 +668,11 @@ class Goulding2019J1010Binaries(Fittable2DModel):
 
 # Function declarations
 
+
 def main():
     model = Goulding2019J1010Binaries(binary_normalization=1,
-                                      mass_dispersion_intercept=8.30-(2.3*4.11),
+                                      mass_dispersion_intercept=8.30 -
+                                      (2.3*4.11),
                                       mass_dispersion_slope=4.11,
                                       intrinsic_scatter=.3,
                                       dispersion_norm=0.002,
@@ -593,6 +699,7 @@ def main():
     if not args:
         print('usage: [--flags options] [inputs] ')
         sys.exit(1)
+
 
 # Main body
 if __name__ == '__main__':
