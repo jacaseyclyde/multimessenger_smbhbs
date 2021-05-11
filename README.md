@@ -3,6 +3,8 @@ Multimessenger SMBHBs
 
 Multimessenger interpretations of the nanoHertz gravitational wave background.
 
+After downloading locally, install the package using `python setup.py install` (`virtualenv` or `conda` recommended). After installing, run the notebooks to reproduce figures in Casey-Clyde et al. (in prep).
+
 Project Organization
 ------------
 
