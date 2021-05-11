@@ -121,6 +121,7 @@ def test_Hopkins2007QuasarFormationRate_set():
 
 def test_QuasarProxyBinaries():
     import numpy as np
+    from scipy.stats import lognorm
     import astropy.units as u
     from astropy.cosmology import WMAP9
     from ..models.agn_proxy import QuasarProxyBinaries
@@ -135,11 +136,14 @@ def test_QuasarProxyBinaries():
                           + WMAP9.Ode0)).to(u.Gyr ** -1).value
 
     model = QuasarProxyBinaries()
-    assert model(log_m, z, q) / dtdz == 1
+    q_norm = lognorm.cdf(1, 1/np.sqrt(2*np.pi), loc=0) - \
+        lognorm.cdf(.25, 1/np.sqrt(2*np.pi), loc=0)
+    assert model(log_m, z, q) * q_norm / dtdz == 1
 
 
 def test_QuasarProxyBinaries_set():
     import numpy as np
+    from scipy.stats import lognorm
     import astropy.units as u
     from astropy.cosmology import WMAP9
     from ..models.agn_proxy import QuasarProxyBinaries
@@ -152,9 +156,16 @@ def test_QuasarProxyBinaries_set():
                 * np.sqrt(WMAP9.Om0 * ((1 + z) ** 3)
                           + WMAP9.Ok0 * ((1 + z) ** 2)
                           + WMAP9.Ode0)).to(u.Gyr ** -1).value
+    q_norm = lognorm.cdf(1, 1/np.sqrt(2*np.pi), loc=0) - \
+        lognorm.cdf(.25, 1/np.sqrt(2*np.pi), loc=0)
 
-    model = QuasarProxyBinaries(binary_normalization=[1, 1],
-                                log_formation_rate_normalization=[np.log10(2), np.log10(2)],
+    model = QuasarProxyBinaries(log_local_smbhb_n_dens=[0, 0],
+                                log_local_agn_n_dens=[0, 0],
+                                log_m_min=[0, 0],
+                                z_max=[1, 1],
+                                q_min=[.25, .25],
+                                log_formation_rate_normalization=[np.log10(2),
+                                                                  np.log10(2)],
                                 log_formation_rate_power_law_slope=[0, 0],
                                 log_mass_break_normalization=[0, 0],
                                 log_mass_break_k_1=[0, 0],
@@ -165,9 +176,10 @@ def test_QuasarProxyBinaries_set():
                                 high_mass_slope_k_2=[0, 0],
                                 z_ref=[2, 2],
                                 mu_log_q=[0, 0],
-                                std_log_q=[1/np.sqrt(2*np.pi), 1/np.sqrt(2*np.pi)],
+                                std_log_q=[1/np.sqrt(2*np.pi),
+                                           1/np.sqrt(2*np.pi)],
                                 n_models=2)
-    assert (model(log_m, z, q) / dtdz == [1, 1]).all()
+    assert (model(log_m, z, q) * q_norm / dtdz == [1, 1]).all()
 
 
 def test_ModifiedSchechter():
