@@ -337,12 +337,9 @@ class QuasarProxyBinaries(FittableModel):
     n_inputs = 3
     n_outputs = 1
 
-    # binary_normalization = Parameter(default=1)
     log_local_smbhb_n_dens = Parameter(default=0)
     log_local_agn_n_dens = Parameter(default=0)
 
-    log_m_min = Parameter(default=0)
-    z_max = Parameter(default=1)
     q_min = Parameter(default=.25)
 
     log_formation_rate_normalization = Parameter(default=np.log10(2))
@@ -364,8 +361,7 @@ class QuasarProxyBinaries(FittableModel):
     std_log_q = Parameter(default=1/np.sqrt(2*np.pi))
 
     @staticmethod
-    def evaluate(log_mass, z, q, local_smbhb_n_dens, local_agn_n_dens,
-                 log_m_min, z_max, q_min,
+    def evaluate(log_mass, z, q, local_smbhb_n_dens, local_agn_n_dens, q_min,
                  log_formation_rate_normalization,
                  log_formation_rate_power_law_slope,
                  log_mass_break_normalization, log_mass_break_k_1,
