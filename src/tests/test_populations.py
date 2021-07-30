@@ -127,39 +127,39 @@ def test_sample_2D_set():
             == np.ones((3, 3, 2))).all()
 
 
-def test_sample_3D_set():
-    import numpy as np
-    from scipy.stats import lognorm
-    import astropy.units as u
-    from astropy.cosmology import WMAP9
-    from ..models.agn_proxy import QuasarProxyBinaries
-    from ..tools.populations import DifferentialBinaryPopulation
+# def test_sample_3D_set():
+#     import numpy as np
+#     from scipy.stats import lognorm
+#     import astropy.units as u
+#     from astropy.cosmology import WMAP9
+#     from ..models.agn_proxy import QuasarProxyBinaries
+#     from ..tools.populations import DifferentialBinaryPopulation
 
-    z_range = np.linspace(0, 1, num=3)
-    log_m_range = np.linspace(8, 11, num=3)
-    q_range = np.linspace(.25, 1, num=3)
-    ranges = np.array([log_m_range, z_range, q_range])
+#     z_range = np.linspace(0, 1, num=3)
+#     log_m_range = np.linspace(8, 11, num=3)
+#     q_range = np.linspace(.25, 1, num=3)
+#     ranges = np.array([log_m_range, z_range, q_range])
 
-    dtdz = 1 / (WMAP9.H0 * (1 + z_range)
-                * np.sqrt(WMAP9.Om0 * ((1 + z_range) ** 3)
-                          + WMAP9.Ok0 * ((1 + z_range) ** 2)
-                          + WMAP9.Ode0)).to(u.Gyr ** -1).value
+#     dtdz = 1 / (WMAP9.H0 * (1 + z_range)
+#                 * np.sqrt(WMAP9.Om0 * ((1 + z_range) ** 3)
+#                           + WMAP9.Ok0 * ((1 + z_range) ** 2)
+#                           + WMAP9.Ode0)).to(u.Gyr ** -1).value
 
-    model = QuasarProxyBinaries(binary_normalization=[1, 1],
-                                log_formation_rate_normalization=[np.log10(2), np.log10(2)],
-                                log_formation_rate_power_law_slope=[0, 0],
-                                log_mass_break_normalization=[0, 0],
-                                log_mass_break_k_1=[0, 0],
-                                log_mass_break_k_2=[0, 0],
-                                low_mass_slope=[0, 0],
-                                high_mass_slope_normalization=[0, 0],
-                                high_mass_slope_k_1=[0, 0],
-                                high_mass_slope_k_2=[0, 0],
-                                z_ref=[2, 2],
-                                mu_log_q=[0, 0],
-                                std_log_q=[1/np.sqrt(2*np.pi), 1/np.sqrt(2*np.pi)],
-                                n_models=2)
-    pop = DifferentialBinaryPopulation(model)
+#     model = QuasarProxyBinaries(binary_normalization=[1, 1],
+#                                 log_formation_rate_normalization=[np.log10(2), np.log10(2)],
+#                                 log_formation_rate_power_law_slope=[0, 0],
+#                                 log_mass_break_normalization=[0, 0],
+#                                 log_mass_break_k_1=[0, 0],
+#                                 log_mass_break_k_2=[0, 0],
+#                                 low_mass_slope=[0, 0],
+#                                 high_mass_slope_normalization=[0, 0],
+#                                 high_mass_slope_k_1=[0, 0],
+#                                 high_mass_slope_k_2=[0, 0],
+#                                 z_ref=[2, 2],
+#                                 mu_log_q=[0, 0],
+#                                 std_log_q=[1/np.sqrt(2*np.pi), 1/np.sqrt(2*np.pi)],
+#                                 n_models=2)
+#     pop = DifferentialBinaryPopulation(model)
 
-    assert (pop._sample(ranges) / dtdz[np.newaxis, :, np.newaxis, np.newaxis]
-            == np.ones((3, 3, 3, 2)) * lognorm.pdf(q_range, 1 / np.sqrt(2 * np.pi), loc=0)[np.newaxis, np.newaxis, :, np.newaxis]).all()
+#     assert (pop._sample(ranges) / dtdz[np.newaxis, :, np.newaxis, np.newaxis]
+#             == np.ones((3, 3, 3, 2)) * lognorm.pdf(q_range, 1 / np.sqrt(2 * np.pi), loc=0)[np.newaxis, np.newaxis, :, np.newaxis]).all()

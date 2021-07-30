@@ -95,5 +95,6 @@ Scratchpad.ipynb
 # Mypy cache
 .mypy_cache/
 
-# Presentation files
+# Report/Presentation files
 *.key
+*.docx

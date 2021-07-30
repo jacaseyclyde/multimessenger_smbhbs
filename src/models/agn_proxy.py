@@ -337,7 +337,10 @@ class QuasarProxyBinaries(FittableModel):
     n_inputs = 3
     n_outputs = 1
 
-    binary_normalization = Parameter(default=1)
+    log_local_smbhb_n_dens = Parameter(default=0)
+    log_local_agn_n_dens = Parameter(default=0)
+
+    q_min = Parameter(default=.25)
 
     log_formation_rate_normalization = Parameter(default=np.log10(2))
     log_formation_rate_power_law_slope = Parameter(default=0)
@@ -358,7 +361,7 @@ class QuasarProxyBinaries(FittableModel):
     std_log_q = Parameter(default=1/np.sqrt(2*np.pi))
 
     @staticmethod
-    def evaluate(log_mass, z, q, binary_normalization,
+    def evaluate(log_mass, z, q, local_smbhb_n_dens, local_agn_n_dens, q_min,
                  log_formation_rate_normalization,
                  log_formation_rate_power_law_slope,
                  log_mass_break_normalization, log_mass_break_k_1,
@@ -370,22 +373,6 @@ class QuasarProxyBinaries(FittableModel):
                     * np.sqrt(WMAP9.Om0 * ((1 + z) ** 3)
                               + WMAP9.Ok0 * ((1 + z) ** 2)
                               + WMAP9.Ode0)).to(u.Gyr ** -1).value
-
-        # # redshift rescalings
-        # z_rescale = (1 + z) / (1 + z_ref)
-        # xi = np.log10(z_rescale)
-
-        # # log form of Hopkins et al. (2007) eq. 25
-        # z_term = np.where(z <= z_ref, 1,
-        #                   z_rescale ** log_formation_rate_power_law_slope)
-        # log_normalization = log_formation_rate_normalization + np.log10(z_term)
-
-        # z_rescale = (1 + z) / (1 + z_ref)
-        # xi = np.log10(z_rescale)
-
-        # z_term = np.minimum(1, z_rescale ** log_formation_rate_power_law_slope)
-
-        # log_normalization = log_formation_rate_normalization + np.log10(z_term)
 
         # redshift rescalings
         xi = np.log10((1 + z) / (1 + z_ref))
@@ -410,9 +397,12 @@ class QuasarProxyBinaries(FittableModel):
         log_mass_distribution = np.log10(low_mass_contribution
                                          + high_mass_contribution)
 
-        return (binary_normalization
+        q_norm = lognorm.cdf(1, std_log_q, loc=mu_log_q) - \
+            lognorm.cdf(q_min, std_log_q, loc=mu_log_q)
+
+        return (10 ** (local_smbhb_n_dens - local_agn_n_dens)
                 * (10 ** (log_normalization - log_mass_distribution)) * dtdz
-                * lognorm.pdf(q, std_log_q, loc=mu_log_q))
+                * lognorm.pdf(q, std_log_q, loc=mu_log_q) / q_norm)
 
 
 class ModifiedSchechter(Fittable1DModel):
@@ -670,30 +660,6 @@ class Goulding2019J1010Binaries(Fittable2DModel):
 
 
 def main():
-    model = Goulding2019J1010Binaries(binary_normalization=1,
-                                      mass_dispersion_intercept=8.30 -
-                                      (2.3*4.11),
-                                      mass_dispersion_slope=4.11,
-                                      intrinsic_scatter=.3,
-                                      dispersion_norm=0.002,
-                                      log_dispersion_break=np.log10(88.8),
-                                      dispersion_alpha=6.5,
-                                      dispersion_beta=1.93,
-                                      log_l_min=11.894149325614856,
-                                      log_l_max=12.894149325614856,
-                                      log_dens_norm=-4.825,
-                                      log_break_luminosity_norm=13.036,
-                                      log_break_luminosity_k1=0.632,
-                                      log_break_luminosity_k2=-11.76,
-                                      log_break_luminosity_k3=-14.25,
-                                      faint_end_slope_norm=0.417,
-                                      faint_end_slope_k=-0.623,
-                                      bright_end_slope_norm=2.174,
-                                      bright_end_slope_k1=1.460,
-                                      bright_end_slope_k2=-0.793,
-                                      z_ref=2)
-    temp = model(8, 0)
-    print(temp)
     args = sys.argv[1:]
 
     if not args:
